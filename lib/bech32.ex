@@ -9,6 +9,8 @@ defmodule Bech32 do
   @data_char_whitelist 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
   @data_char_map Enum.zip(@data_char_whitelist, 0..Enum.count(@data_char_whitelist))
                  |> Enum.into(%{})
+  @hrp_char_code_point_upper_limit 126
+  @hrp_char_code_point_lower_limit 33
 
   @doc """
   ## Examples
@@ -19,9 +21,14 @@ defmodule Bech32 do
   """
   @spec bech32_verify_checksum(binary()) :: bool
   def bech32_verify_checksum(bech32_str) do
-    {hrp, data} = bech32_str |> String.downcase() |> split_bech32_str()
-    checksum = bech32_polymod(bech32_hrp_expand(hrp) ++ data)
-    checksum == 1
+    case bech32_str |> String.downcase() |> split_bech32_str() do
+      {:ok, {hrp, data}} ->
+        checksum = bech32_polymod(bech32_hrp_expand(hrp) ++ data)
+        checksum == 1
+
+      _ ->
+        false
+    end
   end
 
   defp bech32_polymod(values) do
@@ -55,9 +62,22 @@ defmodule Bech32 do
     [data, hrp] = str |> String.reverse() |> String.split("1", parts: 2)
     hrp = hrp |> String.reverse() |> String.to_charlist()
 
-    data =
-      data |> String.reverse() |> String.to_charlist() |> Enum.map(&Map.get(@data_char_map, &1))
+    case Enum.all?(hrp, &is_valid_hrp_char/1) do
+      true ->
+        data =
+          data
+          |> String.reverse()
+          |> String.to_charlist()
+          |> Enum.map(&Map.get(@data_char_map, &1))
 
-    {hrp, data}
+        {:ok, {hrp, data}}
+
+      false ->
+        {:error, :hrp_char_exceed_limit}
+    end
+  end
+
+  defp is_valid_hrp_char(char) do
+    char <= @hrp_char_code_point_upper_limit and char >= @hrp_char_code_point_lower_limit
   end
 end
