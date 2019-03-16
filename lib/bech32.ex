@@ -20,6 +20,10 @@ defmodule Bech32 do
 
   """
   @spec bech32_verify_checksum(binary()) :: bool
+  def bech32_verify_checksum(bech32_str) when byte_size(bech32_str) > 90 do
+    false
+  end
+
   def bech32_verify_checksum(bech32_str) do
     case bech32_str |> String.downcase() |> split_bech32_str() do
       {:ok, {hrp, data}} ->
@@ -59,20 +63,28 @@ defmodule Bech32 do
     # the bech 32 is at most 90 chars
     # so it's ok to do 3 time reverse here
     # otherwise we can use binary pattern matching with index for better performance
-    [data, hrp] = str |> String.reverse() |> String.split("1", parts: 2)
-    hrp = hrp |> String.reverse() |> String.to_charlist()
+    with {_, [data, hrp]} when hrp != "" and data != "" <-
+           {:split_by_seprator, str |> String.reverse() |> String.split("1", parts: 2)},
+         hrp = hrp |> String.reverse() |> String.to_charlist(),
+         {_, true} <- {:check_hrp_validity, Enum.all?(hrp, &is_valid_hrp_char/1)} do
+      data =
+        data
+        |> String.reverse()
+        |> String.to_charlist()
+        |> Enum.map(&Map.get(@data_char_map, &1))
 
-    case Enum.all?(hrp, &is_valid_hrp_char/1) do
-      true ->
-        data =
-          data
-          |> String.reverse()
-          |> String.to_charlist()
-          |> Enum.map(&Map.get(@data_char_map, &1))
+      {:ok, {hrp, data}}
+    else
+      {:split_by_seprator, [_]} ->
+        {:error, :seprator_not_exist}
 
-        {:ok, {hrp, data}}
+      {:split_by_seprator, ["", _]} ->
+        {:error, :empty_data}
 
-      false ->
+      {:split_by_seprator, [_, ""]} ->
+        {:error, :empty_hrp}
+
+      {:check_hrp_validity, false} ->
         {:error, :hrp_char_exceed_limit}
     end
   end
