@@ -5,6 +5,8 @@ defmodule Bech32 do
 
   use Bitwise
 
+  @type error :: atom()
+
   @gen [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
   @data_char_whitelist 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
   @data_char_map Enum.zip(@data_char_whitelist, 0..Enum.count(@data_char_whitelist))
@@ -16,19 +18,42 @@ defmodule Bech32 do
   ## Examples
 
       iex>  Bech32.bech32_verify_checksum("A12UEL5L")
-      true
+      :ok
 
   """
-  @spec bech32_verify_checksum(binary()) :: bool
+  @spec bech32_verify_checksum(binary()) :: {:ok, error}
   def bech32_verify_checksum(bech32_str) when byte_size(bech32_str) > 90 do
-    false
+    {:error, :longer_than_90_chars}
   end
 
   def bech32_verify_checksum(bech32_str) do
     case bech32_str |> String.downcase() |> split_bech32_str() do
       {:ok, {hrp, data}} ->
-        checksum = bech32_polymod(bech32_hrp_expand(hrp) ++ data)
-        checksum == 1
+        case bech32_polymod(bech32_hrp_expand(hrp) ++ data) do
+          1 ->
+            :ok
+
+          _ ->
+            {:error, :incorrect_checksum}
+        end
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  @doc """
+  ## Examples
+
+      iex>  Bech32.bech32_valid?("A12UEL5L")
+      true
+
+  """
+  @spec bech32_valid?(binary()) :: boolean
+  def bech32_valid?(bech32_str) do
+    case bech32_verify_checksum(bech32_str) do
+      :ok ->
+        true
 
       _ ->
         false
@@ -66,13 +91,13 @@ defmodule Bech32 do
     with {_, [data, hrp]} when hrp != "" and data != "" <-
            {:split_by_seprator, str |> String.reverse() |> String.split("1", parts: 2)},
          hrp = hrp |> String.reverse() |> String.to_charlist(),
-         {_, true} <- {:check_hrp_validity, Enum.all?(hrp, &is_valid_hrp_char/1)} do
-      data =
-        data
-        |> String.reverse()
-        |> String.to_charlist()
-        |> Enum.map(&Map.get(@data_char_map, &1))
-
+         {_, true} <- {:check_hrp_validity, Enum.all?(hrp, &is_valid_hrp_char/1)},
+         data <-
+           data
+           |> String.reverse()
+           |> String.to_charlist()
+           |> Enum.map(&Map.get(@data_char_map, &1)),
+         {_, :ok} <- {:check_data_validity, checkdata_charlist_validity(data)} do
       {:ok, {hrp, data}}
     else
       {:split_by_seprator, [_]} ->
@@ -86,6 +111,21 @@ defmodule Bech32 do
 
       {:check_hrp_validity, false} ->
         {:error, :hrp_char_exceed_limit}
+
+      {:check_data_validity, {:error, error}} ->
+        {:error, error}
+    end
+  end
+
+  defp checkdata_charlist_validity(charlist) do
+    if length(charlist) >= 6 do
+      if Enum.all?(charlist, &(!is_nil(&1))) do
+        :ok
+      else
+        {:error, :contain_invalid_data_char}
+      end
+    else
+      {:error, :data_too_short}
     end
   end
 

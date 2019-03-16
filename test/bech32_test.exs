@@ -2,6 +2,7 @@ defmodule Bech32Test do
   use ExUnit.Case
   doctest Bech32
 
+  # ref https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32
   @valid_bech32_strings ~w(
     A12UEL5L
     a12uel5l
@@ -27,15 +28,15 @@ defmodule Bech32Test do
     1qzzfhee
   )
 
-  test "bech32_verify_checksum return true for valid bech32 encoded string" do
+  test "bech32_valid? return true for valid bech32 encoded string" do
     for valid_bech32_string <- @valid_bech32_strings do
-      assert Bech32.bech32_verify_checksum(valid_bech32_string)
+      assert Bech32.bech32_valid?(valid_bech32_string)
     end
   end
 
-  test "bech32_verify_checksum return false for ivalid bech32 encoded string" do
+  test "bech32_valid? return false for ivalid bech32 encoded string" do
     for invalid_bech32_string <- @invalid_bech32_strings do
-      refute Bech32.bech32_verify_checksum(invalid_bech32_string)
+      refute Bech32.bech32_valid?(invalid_bech32_string)
     end
   end
 
