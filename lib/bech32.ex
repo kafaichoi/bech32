@@ -21,23 +21,21 @@ defmodule Bech32 do
       :ok
 
   """
-  @spec bech32_verify_checksum(binary()) :: {:ok, error}
-  def bech32_verify_checksum(bech32_str) when byte_size(bech32_str) > 90 do
-    {:error, :longer_than_90_chars}
-  end
-
+  @spec bech32_verify_checksum(binary()) :: :ok | {:error, error}
   def bech32_verify_checksum(bech32_str) do
-    case bech32_str |> String.downcase() |> split_bech32_str() do
-      {:ok, {hrp, data}} ->
-        case bech32_polymod(bech32_hrp_expand(hrp) ++ data) do
-          1 ->
-            :ok
+    with {:check_bech32_length, :ok} <- {:check_bech32_length, check_bech32_length(bech32_str)},
+         {:check_bech32_case, :ok} <- {:check_bech32_case, check_bech32_case(bech32_str)},
+         {:split_bech32_str, {:ok, {hrp, data}}} <-
+           {:split_bech32_str, bech32_str |> String.downcase() |> split_bech32_str()} do
+      case bech32_polymod(bech32_hrp_expand(hrp) ++ data) do
+        1 ->
+          :ok
 
-          _ ->
-            {:error, :incorrect_checksum}
-        end
-
-      {:error, error} ->
+        _ ->
+          {:error, :incorrect_checksum}
+      end
+    else
+      {_, {:error, error}} ->
         {:error, error}
     end
   end
@@ -97,7 +95,7 @@ defmodule Bech32 do
            |> String.reverse()
            |> String.to_charlist()
            |> Enum.map(&Map.get(@data_char_map, &1)),
-         {_, :ok} <- {:check_data_validity, checkdata_charlist_validity(data)} do
+         {_, :ok} <- {:check_data_validity, check_data_charlist_validity(data)} do
       {:ok, {hrp, data}}
     else
       {:split_by_seprator, [_]} ->
@@ -117,7 +115,25 @@ defmodule Bech32 do
     end
   end
 
-  defp checkdata_charlist_validity(charlist) do
+  defp check_bech32_length(bech32_str) when byte_size(bech32_str) > 90 do
+    {:error, :longer_than_90_chars}
+  end
+
+  defp check_bech32_length(_) do
+    :ok
+  end
+
+  defp check_bech32_case(bech32_str) do
+    case String.upcase(bech32_str) == bech32_str or String.downcase(bech32_str) == bech32_str do
+      true ->
+        :ok
+
+      false ->
+        {:error, :mixed_case}
+    end
+  end
+
+  defp check_data_charlist_validity(charlist) do
     if length(charlist) >= 6 do
       if Enum.all?(charlist, &(!is_nil(&1))) do
         :ok
