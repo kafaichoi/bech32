@@ -1,21 +1,16 @@
 # Bech32
 
-**TODO: Add description**
+## Usage
+```bash
+iex> Bech32.bech32_verify_checksum("A12UEL5L") # more verbose with error mssage
+:ok
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `bech32` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:bech32, "~> 0.1.0"}
-  ]
-end
+iex> Bech32.bech32_valid?("A12UEL5L") # return boolean
+true
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/bech32](https://hexdocs.pm/bech32).
-
+### Development
+```bash
+mix test
+mix dialyzer
+```

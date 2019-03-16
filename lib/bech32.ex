@@ -1,6 +1,6 @@
 defmodule Bech32 do
   @moduledoc """
-  Documentation for Bech32.
+  https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32
   """
 
   use Bitwise
